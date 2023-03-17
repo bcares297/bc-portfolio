@@ -1,0 +1,272 @@
+---
+title: "Compliancy Predictive Model"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = F, warning = F, cache = T)
+```
+
+# Compliancy Predictive Model
+
+## Introduction
+The Compliancy Predictive Model was created to provide a prediction on whether a member will be compliant or non-compliant for a specific 'Clinical Measure' for the following year. The model operates using a Logistic Regression, taking in demographic information, their plan information, and their claims data from the previous year. Through putting this data into the model, it would be able to assign each member a prediction of 1 or 0 (1 = compliant, 0 = non-compliant). 
+
+
+There are a few caveats to this predictive model: 
+  
+  1. One of the driving influences in the prediction accuracy of this model was compliancy in previous years. Our problem occurs when some members are not in the measure the previous year(s). For these new members, the 'Previous Year Compliance' variable cannot be applied to them and the model will not work because of the null values. Therefore, in order to compensate for this, we must create subsets to the model with each model predicting on a specific subset of the population.
+
+
+# Logistic Regression
+
+A Logistic Regression became the most logical model to use because it is used to predict a binary outcome (0/1) given a set of variables and these variables can be either categorical or continuous. It is standard in the Health Care Analytics Industry and it is a simple to understand model. Another added benefit is that it assigns each member a probability. Therefore for our case, it allows us to sort these members by probabilities to find which members need the most help to become compliant. 
+
+
+### Import Model Train Data
+
+After pulling our data, we convert our Excel file into a CSV file that we can easily import into R. We change make any necessary changes to our variables: 
+  1. Any boolean variable is changed to (0/1)
+  2. ZIP code is changed to a character data type
+  3. Numerator flag can be changed to factor (if you want to rename as "compliant" or "non-compliant")
+
+```{r import init. data frame}
+
+library(dplyr)
+library(readr)
+model_data <- read_csv('Eye_Model4.csv') %>% 
+  mutate(mem_gender = ifelse(mem_gender == 'M', 1, 0)) %>%
+  mutate(pcp_type = ifelse(pcp_type == 'Internist', 1, 0)) %>%
+  mutate(Contract = ifelse(Contract == 'HMO', 1, 0)) %>%
+  mutate(mem_postal_code = as.character(mem_postal_code)) %>% 
+  mutate(numer_flag = as.factor(numer_flag))
+
+```
+
+
+### Group Low Volume ZIP Codes 
+
+We want to avoid having our low volume ZIP codes skew our data, therefore we set a cutoff (currently less than 5) and assign them to a new arbitrary ZIP code. 
+
+```{r group ZIPs under 5 ppl}
+# group ZIP by population size
+ groups_by_zip <- model_data %>% 
+   mutate(mem_postal_code = as.character(mem_postal_code)) %>%
+   group_by(mem_postal_code) %>% 
+      summarise(
+        count = n()) %>% 
+    arrange(desc(count)) %>% 
+  mutate(count = ifelse(count < 5, 4, count))    # if ZIP has less than 5 people, then separate into other group
+  
+ 
+   
+ model_data <- model_data %>% 
+   inner_join(groups_by_zip, by = 'mem_postal_code')    # join counts into original data
+   
+ model_data <- model_data %>% 
+  mutate(mem_postal_code = ifelse(count == 4, 99999, mem_postal_code))  # change postal codes with less than 5 ppl to 99999
+ 
+```
+
+
+### Train/Test Set
+
+For the purpose of this data set, we split it into a training and test set. Partition is set to 70% Training/30% Test.
+
+```{r Data Partition}
+library(caret)
+
+# split data set into 70/30
+a <- createDataPartition(model_data$numer_flag, p = .7, list = FALSE)
+trainingSet <- model_data[a,]
+testSet <- model_data[-a,]
+
+```
+
+
+### Logistic Regression
+
+We first name our variables for our model. In this specific model, we have 12 variables.
+
+Variables can be broken into three groups: 
+   1. Demographic/Plan Information
+   2. Claims History (trying to measure utilization)
+   3. Past compliance
+
+Future variables that could potentially be included: HOS/CAHPS/survey data?   
+
+
+```{r Logistic Regression}
+
+compliance <- trainingSet$numer_flag                  # outcome variable
+      mem_postal_code <- trainingSet$mem_postal_code  # input variables
+      age <- trainingSet$age
+      mem_gender <- trainingSet$mem_gender
+      pcp_type <- trainingSet$pcp_type
+      Contract <- trainingSet$Contract
+      prev_numer <- trainingSet$prev_numer
+      Claim_Count <- trainingSet$Claim_Count
+      total.allowed.amount <- trainingSet$total.allowed.amount
+      Distance <- trainingSet$Distance
+      pcpvisits <- trainingSet$pcpvisits
+      risk_scores <- trainingSet$risk_scores 
+      `2yrprev_numer` <- trainingSet$`2yrprev_numer`
+```  
+
+### LASSO Regression
+
+We use LASSO regression for our Variable Selection. 
+
+From Analytics Vidhya, 
+  "In case of LASSO we apply an absolute penality, after increasing the penality in LASSO, some of the coefficients of variables may become zero"
+
+What we are left with is a simpler model with our relevant variables. 
+
+** When setting x and y:
+      x -> mute columns that aren't variables and mute dependent variable
+      y -> set as dependent variable column
+                                          **
+
+```{r Lasso Regression}
+library(glmnet)
+x <- as.matrix(trainingSet[,-c(1,2,9)])
+y <- as.matrix(trainingSet[,9])
+
+
+# Lasso Regression
+
+cv.lasso <- cv.glmnet(x, y, family='binomial', alpha=1, parallel=TRUE, standardize=TRUE, type.measure='auc')
+
+# Lasso Results
+plot(cv.lasso)
+plot(cv.lasso$glmnet.fit, xvar="lambda", label=TRUE)
+cv.lasso$lambda.min
+cv.lasso$lambda.1se
+coef(cv.lasso, s=cv.lasso$lambda.min)
+```
+
+### Model Evaluation
+
+We take our remaining coefficients from the LASSO regression and place them as our final variables in our reduced model. 
+
+After, we can have our model generate a prediction on its training data. 
+   
+   
+```{r Model Reduced}      
+
+# reduced model
+model_reduced <- glm(compliance ~ prev_numer + Claim_Count + `2yrprev_numer`, family = binomial(link = 'logit'), data = trainingSet)
+
+
+
+# probabilities
+prob <- predict(model_reduced, type = 'response')
+
+```
+
+To evaluate how our model performs we measure its AUC-ROC (Area Under the Receiver Operating Curve). AUC is a standard measure to asses model competency. Another way to analyze performance is to look at AIC. AIC is similar to R-Squared in Linear Regression. We prefer a model with minimum AIC value. To minimize this AIC value, we can run the original variables through a Stepwise Regression to eventually get a reduced model. 
+
+
+The predictions of our Logistic Regression will come out in the form of probabilities. We need to establish a cutoff of where the model will classify a member as "compliant" or "non-compliant". How we do this is to generate a boxplot of the probabilities and find the separation between these two boxplots to establish the cutoff. 
+
+A confusion matrix can be generated to evaluate how accurate our model was on its training data. 
+```{r Evaluate}
+
+# Evaluate model
+library(ROCR)
+pr <- prediction(prob, compliance)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+
+
+
+
+actual_v_fitted <- tbl_df(
+  data.frame(outcome = compliance, 
+             prob))
+# box plots
+library(ggplot2)
+ggplot(actual_v_fitted, aes(x = outcome, y = prob)) +
+  geom_boxplot(aes(group = outcome, fill = outcome)) +
+  geom_hline(aes(yintercept= 0.67))
+
+eval <- actual_v_fitted %>%
+  mutate(prediction = ifelse(prob > 0.5, 1, 0))
+
+# cross-Validation table
+confuse_mat <- table(actual = eval$outcome, predicted = eval$prediction)
+sum(diag(confuse_mat)) / sum(confuse_mat)
+
+```
+
+### Test Set
+
+To test the approximate accuracy of our model, we run it on our test set (new data that the model has not seen before).
+
+Run another confusion matrix to calculate accuracy. 
+
+```{r Testing Model}
+
+# run model on new data
+  
+test_predictions <- predict(model_reduced, newdata = testSet, type = 'response')  # use original model on new data
+curr_source_mem_id <- testSet$curr_source_mem_id    # attach probabilities to member
+
+  
+actual_v_fitted2 <- tbl_df(
+  data.frame(curr_source_mem_id, test_predictions)) 
+
+eval_Model1 <- actual_v_fitted2 %>% 
+  mutate(prediction = ifelse(test_predictions > .5, 1, 0))    # table with members and prediction of compliance/non-compliance
+
+View(eval_Model1)
+
+
+
+
+
+# export predictions into an Excel file
+library(xlsx)
+write.xlsx(eval_Model1, "C:/Users/R Files/predictions.xlsx")
+
+
+
+
+
+
+# if you later get full complete data and want to evaluate how accurate the predictions were
+
+eval_Model1 <- eval_Model1 %>% 
+ inner_join(testSet %>% select(curr_source_mem_id, numer_flag), by = 'curr_source_mem_id')
+
+
+# cross-Validation table
+confuse_mat2 <- table(actual = eval_Model1$numer_flag, predicted = eval_Model1$prediction)
+sum(diag(confuse_mat2)) / sum(confuse_mat2)
+```
+
+
+Further evaluation of Model using a pseudo-R2 called McFadden R2.
+
+```{r Logistic Regression Evaluation, eval=FALSE}
+
+# Psuedo R-Squared
+library(pscl)
+pR2(model_reduced) # look for 'McFadden'
+
+# Wald Test
+library(survey)
+regTermTest(model_reduced, "prev_numer") # Wald Test for __ variable
+
+# Variable Importance
+varImp(model_reduced)
+
+```

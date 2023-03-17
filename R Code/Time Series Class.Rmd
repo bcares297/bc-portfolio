@@ -1,0 +1,432 @@
+---
+title: "Time-Series Class"
+output: html_document
+---
+ 
+```{r Install libraries -- ONLY HAVE TO RUN ONCE}
+
+packages <- c("readxl", "ggplot2", "dplyr", "xts", "forecast")
+
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages, rownames(installed.packages())))  
+}
+
+```
+
+```{r Load libraries}
+
+library(readxl)    ## Reading Excel files
+library(ggplot2)   ## Visualizing data
+library(dplyr)    ## Manipulate/Stage data
+library(xts)      ## Read time series data
+library(forecast) ## Forecast time series
+
+```
+
+```{r Import dataset}
+
+vat_data <- read_xlsx("C:\\Users\\Downloads\\Example Data Set.xlsx")  ## Need to have double slashes for file paths
+
+
+View(vat_data)  ## Look at dataframe
+ 
+str(vat_data)  ## Structure of dataframe (data types)
+
+```
+
+```{r Statify Train/Test}
+
+vat_train <- vat_data[1:35,]  ## 2015-2017 data
+
+vat_test <- vat_data[36:41,]  ## 1/2018 - 6/2018 data [6 mo]
+
+View(vat_train)
+
+View(vat_test)
+
+```
+
+```{r Visualize data}
+
+# Plot line, bar graphs to see distribution
+
+p <- ggplot(data = vat_train, aes(x = vat_train$Date, y = vat_train$Penetration))
+
+p + geom_bar(stat = "identity", fill = "cornflowerblue")
+
+p + geom_line()
+
+
+# To overlay two plots:
+p + geom_bar(stat = "identity", fill = "cornflowerblue") + 
+  geom_line() + 
+  ggtitle("Monthly Pgm Penetration Rate") + 
+  labs(y = "Penetration", x = "Date")
+
+
+```
+
+```{r Make dataset a time-series object}
+
+# Create Time Series object
+
+vat_train.ts <- ts(vat_train$Penetration, start = c(2015, 2), frequency = 12)
+
+vat_test.ts <- ts(vat_test$Penetration, start = c(2018, 1), frequency = 12)
+
+plot(vat_train.ts, main = "Pgm Time Series (Training Data)")
+
+plot(vat_test.ts, main = "Pgm Time Series (Test Data)")
+
+```
+
+```{r Base Forecast model}
+
+# Holt Winters: (Triple Exponential Smoothing)
+
+model1 <- hw(y = vat_train.ts, h = 6, initial = "optimal")
+             
+  summary(model1)
+ 
+  accuracy(model1)     # look at AIC, MASE, & MAPE to evaluate model
+  
+ 
+# Parameters:
+  # alpha = .0082, beta = .0001, gamma = .0414
+# Errors: 
+  # RMSE = 0.005085971, MAPE = 75.0357, MASE = 0.375825
+  
+
+  
+# Training Set: Observed vs Fitted
+ggplot(data = vat_train, aes(x = vat_train$Date, y = vat_train$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model1$fitted), color="red") + # Model estimates
+  ggtitle("Training: Observed vs Fitted")
+
+
+# Forecast: Observed vs Fitted
+ggplot(data = vat_test, aes(x = vat_test$Date, y = vat_test$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model1$mean), color="red") + # Model estimates
+  ggtitle("Forecast: Observed vs Fitted")
+
+
+autoplot(model1) + 
+  autolayer(vat_test.ts, series = "Data") +
+  autolayer(model1$mean, series = "Forecast") +
+  scale_color_manual(values=c("#212121", "#ff0000")) +
+  ylab("Penetration") +
+  xlab("Years") 
+
+
+## Error of forecast against actuals
+
+accuracy(model1$mean,vat_test.ts)
+  # RMSE = 0.008282998, MAE = 0.007521994, MAPE = 30.63864
+
+```
+
+```{r Model v2}
+
+# Holt Winters: (Triple Exponential Smoothing)
+
+model2 <- hw(y = vat_train.ts, h = 6, initial = "optimal",
+             alpha = .2, beta = .0001, gamma = .4)
+
+                ## 0 < a < 1 // 0 < b < a // 0 < y < 1 - a // a + b + y < 1
+             
+  summary(model2)
+ 
+  accuracy(model2)     # look at AIC, MASE, & MAPE to evaluate model
+  
+ 
+# Parameters:
+  # alpha = .2, beta = .0001, gamma = .4
+# Errors: 
+  # RMSE = 0.005678375, MAPE = 53.75948, MASE = 0.3974799
+  
+
+  
+# Training Set: Observed vs Fitted
+ggplot(data = vat_train, aes(x = vat_train$Date, y = vat_train$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model2$fitted), color="red") + # Model estimates
+  ggtitle("Training: Observed vs Fitted")
+
+
+# Forecast: Observed vs Fitted
+ggplot(data = vat_test, aes(x = vat_test$Date, y = vat_test$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model2$mean), color="red") + # Model estimates
+  ggtitle("Forecast: Observed vs Fitted")
+
+
+autoplot(model2) + 
+  autolayer(vat_test.ts, series = "Data") +
+  autolayer(model2$mean, series = "Forecast") +
+  scale_color_manual(values=c("#212121", "#ff0000")) +
+  ylab("Penetration") +
+  xlab("Years") 
+
+
+
+## Error of forecast against actuals
+
+accuracy(model2$mean,vat_test.ts)
+  # RMSE = 0.00818699, MAE = 0.00708991, MAPE = 23.17808
+
+```
+
+```{r Simulate 4 mo later}
+
+vat_train_2 <- vat_data[1:39,]  ## 2015- 4/2018 data
+
+vat_test_2 <- vat_data[40:45,]  ## 5/2018 - 10/2018 data [6mo]
+
+############################################################################################
+
+vat_train_2.ts <- ts(vat_train_2$Penetration, start = c(2015, 2), frequency = 12)
+
+vat_test_2.ts <- ts(vat_test_2$Penetration, start = c(2018, 5), frequency = 12)
+
+plot(vat_train_2.ts, main = "Pgm Time Series (Training Data)")
+
+plot(vat_test_2.ts, main = "Pgm Time Series (Test Data)")
+
+```
+
+```{r Model v3}
+
+# Holt Winters: (Triple Exponential Smoothing)
+
+model3 <- hw(vat_train_2.ts, h = 6, initial = "optimal",
+             alpha = .2, beta = .0001, gamma = .4)
+
+              ## 0 < a < 1 // 0 < b < a // 0 < y < 1 - a // a + b + y < 1
+             
+  summary(model3)
+ 
+  accuracy(model3) # look at AIC, MASE, & MAPE to evaluate model
+  
+ 
+# Parameters:
+  # alpha = .2, beta = .0001, gamma = .4
+# Errors: 
+  # RMSE = 0.005552559, MAPE = 55.7588, MASE = 0.4316786
+  
+
+  
+# Training Set: Observed vs Fitted
+ggplot(data = vat_train_2, aes(x = vat_train_2$Date, y = vat_train_2$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model3$fitted), color="red") + # Model estimates
+  ggtitle("Training: Observed vs Fitted")
+
+
+# Forecast: Observed vs Fitted
+ggplot(data = vat_test_2, aes(x = vat_test_2$Date, y = vat_test_2$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model3$mean), color="red") + # Model estimates
+  ggtitle("Forecast: Observed vs Fitted")
+
+
+autoplot(model3) + 
+  autolayer(vat_test_2.ts, series = "Data") +
+  autolayer(model3$mean, series = "Forecast") +
+  scale_color_manual(values=c("#212121", "#ff0000")) +
+  ylab("Penetration") +
+  xlab("Years") 
+
+
+
+## Error of forecast against actuals
+
+accuracy(model3$mean,vat_test_2.ts)
+  # RMSE = 0.008898957, MAE = 0.007339538, MAPE = 15.98506
+
+```
+
+```{r Simulate 8 mo later}
+
+vat_train_3 <- vat_data[1:43,]  ## 2015- 8/2018 data
+
+vat_test_3 <- vat_data[44:47,]  ## Rest of 2018 data
+
+############################################################################################
+
+vat_train_3.ts <- ts(vat_train_3$Penetration, start = c(2015, 2), frequency = 12)
+
+vat_test_3.ts <- ts(vat_test_3$Penetration, start = c(2018, 9), frequency = 12)
+
+plot(vat_train_3.ts, main = "Pgm Time Series (Training Data)")
+
+plot(vat_test_3.ts, main = "Pgm Time Series (Test Data)")
+
+```
+
+```{r Model v4}
+
+# Holt Winters: (Triple Exponential Smoothing)
+
+model4 <- hw(vat_train_3.ts, h = 4, initial = "optimal",
+             alpha = .2, beta = .0001, gamma = .4)
+
+              ## 0 < a < 1 // 0 < b < a // 0 < y < 1 - a // a + b + y < 1
+             
+  summary(model4)
+ 
+  accuracy(model4) # look at AIC, MASE, & MAPE to evaluate model
+  
+ 
+# Parameters:
+  # alpha = .2, beta = .0001, gamma = .4
+# Errors: 
+  # RMSE = 0.005941123, MAPE = 62.53191, MASE = 0.4583342
+  
+
+  
+# Training Set: Observed vs Fitted
+ggplot(data = vat_train_3, aes(x = vat_train_3$Date, y = vat_train_3$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model4$fitted), color="red") + # Model estimates
+  ggtitle("Training: Observed vs Fitted")
+
+
+# Forecast: Observed vs Fitted
+ggplot(data = vat_test_3, aes(x = vat_test_3$Date, y = vat_test_3$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model4$mean), color="red") + # Model estimates
+  ggtitle("Forecast: Observed vs Fitted")
+
+
+autoplot(model4) + 
+  autolayer(vat_test_3.ts, series = "Data") +
+  autolayer(model4$mean, series = "Forecast") +
+  scale_color_manual(values=c("#212121", "#ff0000")) +
+  ylab("Penetration") +
+  xlab("Years") 
+
+
+
+## Error of forecast against actuals
+
+accuracy(model4$mean,vat_test_3.ts)
+  # RMSE = 0.009148864, MAE = 0.008106798, MAPE = 20.82787
+
+```
+
+```{r Simulate FY 2018}
+
+vat_train_4 <- vat_data[1:35,]  ## 2015- 2017 data
+
+vat_test_4 <- vat_data[36:47,]  ## 2018 data 
+
+############################################################################################
+
+vat_train_4.ts <- ts(vat_train_4$Penetration, start = c(2015, 2), frequency = 12)
+
+vat_test_4.ts <- ts(vat_test_4$Penetration, start = c(2018, 1), frequency = 12)
+
+plot(vat_train_4.ts, main = "Pgm Time Series (Training Data)")
+
+plot(vat_test_4.ts, main = "Pgm Time Series (Test Data)")
+
+```
+
+```{r FY 2018}
+
+# Holt Winters: (Triple Exponential Smoothing)
+
+model5 <- hw(vat_train_4.ts, h = 12, initial = "optimal",
+             alpha = .2, beta = .0001, gamma = .4)
+
+              ## 0 < a < 1 // 0 < b < a // 0 < y < 1 - a // a + b + y < 1
+             
+  summary(model5)
+ 
+  accuracy(model5) # look at AIC, MASE, & MAPE to evaluate model
+  
+ 
+# Parameters:
+  # alpha = .2, beta = .0001, gamma = .4
+# Errors: 
+  # RMSE = 0.005678375, MAPE = 53.75948, MASE = 0.3974799
+  
+
+  
+# Training Set: Observed vs Fitted
+ggplot(data = vat_train_4, aes(x = vat_train_4$Date, y = vat_train_4$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model5$fitted), color="red") + # Model estimates
+  ggtitle("Training: Observed vs Fitted")
+
+
+# Forecast: Observed vs Fitted
+ggplot(data = vat_test_4, aes(x = vat_test_4$Date, y = vat_test_4$Penetration)) +  # Actual
+  geom_line() +
+  geom_line(aes(y = model5$mean), color="red") + # Model estimates
+  ggtitle("Forecast: Observed vs Fitted")
+
+
+autoplot(model5) + 
+  autolayer(vat_test_4.ts, series = "Data") +
+  autolayer(model5$mean, series = "Forecast") +
+  scale_color_manual(values=c("#212121", "#ff0000")) +
+  ylab("Penetration") +
+  xlab("Years") 
+
+
+
+## Error of forecast against actuals
+
+accuracy(model5$mean,vat_test_4.ts)
+  # RMSE = 0.007056656, MAE = 0.006111864, MAPE = 17.8589
+
+
+
+###### ENDING 2018 Estimates ######
+
+  # Forecasted: 21,946
+  # Actual: 22,323
+
+
+```
+
+```{r USE R FUNCTION TO QUICKLY RUN ALL STEPS}
+
+
+quick_hw <- function(ts_train, ts_test, h, initial = "optimal", alpha, beta, gamma) {
+  
+  hw_model <- forecast::hw(ts_train, h = h, initial = initial,
+                           alpha = alpha, beta = beta, gamma = gamma)
+
+  plot <- autoplot(hw_model) + 
+    autolayer(ts_test, series = "Data") +
+    autolayer(hw_model$mean, series = "Forecast") +
+    scale_color_manual(values=c("#212121", "#ff0000")) +
+    ylab("Penetration") +
+    xlab("Years") 
+  
+  
+  stats <- list(training_summary = summary(hw_model),
+                training_accuracy = accuracy(hw_model),
+                testing_accuracy = accuracy(hw_model$mean, ts_test))
+  
+  print(plot)
+  return(stats)
+  }
+  
+
+
+# Example usage with output shown below
+
+quick_hw(ts_train = vat_train_4.ts, 
+                   ts_test = vat_test_4.ts, 
+                   h = 12, initial = "optimal",  alpha = 0.2, beta = 0.0001,  gamma = 0.4)
+  
+  
+
+
+```
+
