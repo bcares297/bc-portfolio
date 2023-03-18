@@ -1,0 +1,593 @@
+Sub B_CreateTrackerFiles()
+
+Dim ws As Worksheet
+
+Dim c As Range
+Dim rCount1 As String
+Dim rCount2 As String
+Dim rCount3 As String
+
+Dim tbl1 As ListObject
+Dim tbl2 As ListObject
+Dim tbl3 As ListObject
+
+
+Application.AskToUpdateLinks = False
+Application.DisplayAlerts = False
+
+
+Set xWs1 = ActiveWorkbook.Sheets(1)
+Set xWs2 = ActiveWorkbook.Sheets(2)
+Set xWs3 = ActiveWorkbook.Sheets(3)
+Set Drops = ActiveWorkbook.Sheets(4)
+
+
+' Set Up Dropdown Ranges
+Drops.Range("A2:A3").Name = "HCC_Pass_Fail"
+Drops.Range("B2:B4").Name = "Hier_Lvl"
+Drops.Range("C2:C3").Name = "Supp_Str"
+Drops.Range("D2:D3").Name = "Pass_Fail"
+Drops.Range("E2:E3").Name = "Yes_No"
+Drops.Range("G2:G7").Name = "Val_1"
+Drops.Range("H2:H12").Name = "Val_2"
+
+
+xWs3.Activate
+xWs3.Range("A1").Select
+
+
+' Member Directory
+
+ActiveCell.EntireColumn.Insert
+ActiveCell.EntireRow.Insert
+ActiveCell.EntireRow.Insert
+
+xWs3.Range("B3").Select
+Range(Selection, Selection.End(xlToRight)).Select
+Range(Selection, Selection.End(xlDown)).Select
+Set Rng1 = Application.Selection
+Set tbl1 = ActiveSheet.ListObjects.Add(xlSrcRange, Rng1, , xlYes)
+tbl1.TableStyle = "TableStyleMedium16"
+Rng1.BorderAround Weight:=xlMedium
+
+
+xWs3.Range("C1").Value = "BY2019 Member Trackers"
+xWs3.Range("C1").Font.Bold = True
+xWs3.Range("C1").Font.Italic = True
+xWs3.Range("C1").Font.Size = 14
+xWs3.Range("C1").BorderAround Weight:=xlMedium
+
+xWs3.Range("B3").Value = "Party ID"
+xWs3.Range("C3").Value = "Enrollee Last Name"
+xWs3.Range("D3").Value = "Enrollee First Name"
+xWs3.Range("E3").Value = "Enrollee Birth Date"
+xWs3.Range("G3").Value = "Region"
+xWs3.Range("H3").Value = "Market"
+xWs3.Range("I3").Value = "Total HCCs"
+xWs3.Range("J3").Value = "Stratum Level"
+
+xWs3.Columns("B:Z").HorizontalAlignment = xlCenter
+xWs3.Columns("B:Z").AutoFit
+
+xWs3.Name = "Member Directory"
+
+
+' Member Tabs
+
+xWs3.Range("B4").Select
+Range(Selection, Selection.End(xlDown)).Select
+Set Rng2 = Application.Selection
+
+
+For Each c In Rng2
+    sName = Trim(c.Text)
+    memName = c.Offset(0, 2).Text & "_" & c.Offset(0, 1).Text
+    rCount1 = c.Offset(0, 7).Value
+        
+    ' Create new sheet for each member
+    Worksheets.Add After:=Worksheets(Worksheets.Count)
+    ActiveSheet.Name = sName
+    Set xWs4 = ActiveWorkbook.ActiveSheet
+    
+    If c.Offset(0, 7).Value > 0 Then
+    
+        ' Pull Enrollee HCCs
+        xWs1.Activate
+        xWs1.Range("B1").Select
+        Range(Selection, Selection.End(xlToRight)).Select
+        Range(Selection, Selection.End(xlDown)).Select
+        Set Rng3 = Application.Selection
+        Rng3.Cut xWs4.Range("C3")
+        
+        xWs1.Range("A1:G" & rCount1 + 2).Delete
+        xWs4.Columns(4).Delete
+        xWs4.Columns(4).Delete
+        xWs4.Columns(4).Delete
+        xWs4.Columns(4).Delete
+        
+        xWs4.Columns(3).NumberFormat = "@"
+        
+        xWs4.Range("C3").Value = "Party ID"
+        xWs4.Range("D3").Value = "HCC"
+        xWs4.Range("E3").Value = "Overall Internal Validation"
+        xWs4.Range("F3").Value = "Vendor Validation"
+        xWs4.Range("H3").Value = "HCC Adds"
+        xWs4.Range("I3").Value = "Lower Hierarchy HCCs"
+        
+        
+        ' Pull Enrollee Charts
+        xWs2.Activate
+        xWs2.Range("B1").Select
+        
+        If ActiveCell.Offset(1, 0).Value = c.Value Then
+            Range(Selection, Selection.End(xlToRight)).Select
+            Range(Selection, Selection.End(xlDown)).Select
+            Set Rng4 = Application.Selection
+            Rng4.Cut xWs4.Range("C" & rCount1 + 5)
+            rCount2 = xWs2.Range("A1", xWs2.Range("A1").End(xlDown)).Rows.Count
+            xWs2.Range("A1:K" & rCount2 + 1).Delete
+            xWs4.Range("C" & rCount1 + 5 & ":F" & rCount1 + rCount2 + 5).Delete
+        Else
+            rCount2 = 5
+        End If
+            
+        xWs4.Activate
+        xWs4.Range("C" & rCount1 + 5).Value = "Chase ID"
+        xWs4.Range("D" & rCount1 + 5).Value = "Chart"
+        xWs4.Range("E" & rCount1 + 5).Value = "Priority"
+        xWs4.Range("F" & rCount1 + 5).Value = "OOA?"
+        xWs4.Range("G" & rCount1 + 5).Value = "CHC?"
+        xWs4.Range("H" & rCount1 + 5).Value = "Vendor Indicator"
+        xWs4.Range("I" & rCount1 + 5).Value = "Chart Retrieval Status"
+        xWs4.Range("J" & rCount1 + 5).Value = "Sent to Vendor"
+        xWs4.Range("K" & rCount1 + 5).Value = "Start Review?"
+        xWs4.Range("L" & rCount1 + 5).Value = "Validator Name"
+        
+        xWs4.Range("M" & rCount1 + 5).Value = "Party ID Lookup"
+        xWs4.Range("N" & rCount1 + 5).Value = "Chart ID Lookup"
+        xWs4.Range("O" & rCount1 + 5).Value = "Chart Lookup"
+        xWs4.Range("P" & rCount1 + 5).Value = "Chart ID - HCC Lookup"
+        
+        xWs4.Range("Q" & rCount1 + 5).Value = "HCC"
+        xWs4.Range("R" & rCount1 + 5).Value = "Vendor Validation"
+        xWs4.Range("S" & rCount1 + 5).Value = "Rebuttal?"
+        xWs4.Range("T" & rCount1 + 5).Value = "Overturned?"
+        xWs4.Range("U" & rCount1 + 5).Value = "Internal Pass/Fail"
+        xWs4.Range("V" & rCount1 + 5).Value = "Val Hierarchy Level"
+        xWs4.Range("W" & rCount1 + 5).Value = "Val HCC Found"
+        xWs4.Range("X" & rCount1 + 5).Value = "Val Support Strength"
+        xWs4.Range("Y" & rCount1 + 5).Value = "Validation DOS"
+        xWs4.Range("Z" & rCount1 + 5).Value = "Validation Page #(s)"
+        xWs4.Range("AA" & rCount1 + 5).Value = "Best DOS"
+        xWs4.Range("AB" & rCount1 + 5).Value = "Notes"
+        
+    
+        For i = 1 To (rCount2 - 1)
+            xWs4.Range("C" & (rCount1 * i) + 6).Activate
+            ActiveCell.Offset(i, 0).Activate
+            
+            
+            For j = 1 To rCount1
+                ActiveCell.EntireRow.Insert
+            Next j
+            
+            
+             'Chart Retrieval Status formula
+            ' ActiveCell.Offset(-1, 6).Formula = "=INDEX('" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1'!$B:$B,MATCH(" & ActiveCell.Address & ",'" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1" & "'!$A:$A,0))"
+            
+            'Sent to Vendor formula
+            ' ActiveCell.Offset(-1, 7).Formula = "=INDEX('" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1'!$B:$B,MATCH(" & ActiveCell.Address & ",'" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1" & "'!$A:$A,0))"
+            
+            
+            ActiveCell.Offset(-1, 8).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                Formula1:="Yes"
+                
+            ActiveCell.Offset(-1, 9).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Val_2"
+                    
+            
+            xWs4.Range("C4:C" & rCount1 + 3).Copy ActiveCell.Offset(0, 10)
+            xWs4.Range("D4:D" & rCount1 + 3).Copy ActiveCell.Offset(0, 14)
+            
+            ActiveCell.Offset(-1, 0).Select
+            Range(Selection, Selection.Offset(0, 1)).Select
+            
+            For k = 1 To rCount1
+                Selection.Copy ActiveCell.Offset(k, 11)
+                ActiveCell.Offset(k, 13).Formula = "=CONCAT(" & ActiveCell.Offset(k, 11).Address & ",""_""," & ActiveCell.Offset(k, 14).Address & ")"
+                
+                
+                ' Add Vendor Validation dropdown
+                ActiveCell.Offset(k, 15).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Pass_Fail"
+                    
+                ' Add Rebuttal dropdown
+                ActiveCell.Offset(k, 16).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="Yes"
+                    
+                ' Add Overturned dropdown
+                ActiveCell.Offset(k, 17).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Yes_No"
+            
+                ' Add Internal Pass/Fail dropdown
+                ActiveCell.Offset(k, 18).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Pass_Fail"
+                    
+                ' Add Val Hierarchy Level dropdown
+                ActiveCell.Offset(k, 19).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Hier_Lvl"
+                    
+              ' Add Val Support Strength dropdown
+                ActiveCell.Offset(k, 21).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Supp_Str"
+                    
+                
+            Next k
+            
+        Next i
+        
+        xWs4.Range("C" & (rCount1 + 5) & ":C" & ((rCount1 + 1) * (rCount2) + 4)).Select
+        Range(Selection, Selection.End(xlToRight)).Select
+        Set Rng5 = Application.Selection
+        Set tbl2 = ActiveSheet.ListObjects.Add(xlSrcRange, Rng5, , xlYes)
+        tbl2.TableStyle = "TableStyleMedium16"
+        Rng5.AutoFilter
+        Rng5.BorderAround Weight:=xlMedium
+        
+        xWs4.Rows(rCount1 + 5).Font.Color = RGB(255, 255, 255)
+        xWs4.Rows(rCount1 + 5).Font.Underline = xlUnderlineStyleSingle
+        
+        xWs4.Range("C3").Select
+        Range(Selection, Selection.End(xlToRight)).Select
+        Range(Selection, Selection.End(xlDown)).Select
+        Set Rng6 = Application.Selection
+        Set tbl3 = ActiveSheet.ListObjects.Add(xlSrcRange, Rng6, , xlYes)
+        tbl3.TableStyle = "TableStyleMedium16"
+        Rng6.AutoFilter
+        Rng6.BorderAround Weight:=xlMedium
+
+        xWs4.Range("H3:I4").BorderAround Weight:=xlMedium
+        xWs4.Range("H3:I4").Font.Bold = True
+        xWs4.Range("H3:H4").BorderAround Weight:=xlMedium
+        xWs4.Range("H3:I3").Interior.Color = RGB(68, 114, 196)
+        xWs4.Rows(3).Font.Color = RGB(255, 255, 255)
+        xWs4.Rows(3).Font.Underline = xlUnderlineStyleSingle
+        
+        xWs4.Columns("B:AB").HorizontalAlignment = xlCenter
+        xWs4.Columns("B:AB").AutoFit
+        
+        xWs4.Range("E3").Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("K" & rCount1 + 5).Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("L" & rCount1 + 5).Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("R" & rCount1 + 5).Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("S" & (rCount1 + 5) & ":T" & (rCount1 + 5)).Interior.Color = RGB(112, 173, 71)
+        xWs4.Range("U" & (rCount1 + 5) & ":AB" & (rCount1 + 5)).Interior.Color = RGB(240, 150, 9)
+        
+        xWs4.Columns(4).ColumnWidth = 60
+        
+        xWs4.Columns(7).ColumnWidth = 19
+        xWs4.Columns(8).ColumnWidth = 25
+        xWs4.Columns(9).ColumnWidth = 30
+        xWs4.Columns(10).ColumnWidth = 25
+        xWs4.Columns(11).ColumnWidth = 14
+        xWs4.Columns(12).ColumnWidth = 30
+        xWs4.Columns(17).ColumnWidth = 10
+        xWs4.Columns(18).ColumnWidth = 25
+        xWs4.Columns(19).ColumnWidth = 14
+        xWs4.Columns(20).ColumnWidth = 14
+        xWs4.Columns(21).ColumnWidth = 22
+        xWs4.Columns(22).ColumnWidth = 22
+        xWs4.Columns(23).ColumnWidth = 22
+        xWs4.Columns(24).ColumnWidth = 22
+        xWs4.Columns(25).ColumnWidth = 30
+        xWs4.Columns(26).ColumnWidth = 30
+        xWs4.Columns(27).ColumnWidth = 16
+        xWs4.Columns(28).ColumnWidth = 60
+        
+        Worksheets("Member Directory").Hyperlinks.Add Anchor:=c, _
+            Address:="", _
+            SubAddress:=sName & "!A1", _
+            TextToDisplay:=sName
+    
+        xWs4.Hyperlinks.Add Anchor:=xWs4.Range("A1"), _
+            Address:="", _
+            SubAddress:="'Member Directory'!A1", _
+            TextToDisplay:="Back to Member Directory"
+            
+        xWs4.Activate
+        Windows(1).DisplayGridlines = False
+        xWs4.Range("A2").Select
+        
+        For x = 1 To (rCount2 - 1)
+            xWs4.Range("M" & ((rCount1 * x) + 5 + x)).Select
+            Range(Selection, Selection.End(xlToRight)).Select
+            Selection.Interior.Color = RGB(64, 64, 64)
+        Next x
+        
+        For y = 1 To (rCount2 - 1)
+            xWs4.Range("C" & ((rCount1 * y) + 6 + y)).Select
+            Range(Selection, Selection.Offset(rCount1 - 1, 0)).Select
+            Selection.Rows.Group
+        Next y
+        
+        xWs4.Outline.ShowLevels RowLevels:=1
+        
+        xWs4.Range("M3:P3").EntireColumn.Hidden = True
+        
+        ActiveWindow.FreezePanes = False
+        Range("E" & rCount1 + 6).Select
+        ActiveWindow.FreezePanes = True
+        
+        xWs4.Range("D1").Value = memName
+        xWs4.Range("D1").Font.Bold = True
+        xWs4.Range("D1").Font.Italic = True
+        xWs4.Range("D1").Font.Size = 14
+        xWs4.Range("D1").BorderAround Weight:=xlMedium
+        
+        
+        xWs4.Range("C3").Activate
+        For n = 1 To rCount1
+        
+            ' Overall Internal Validation
+            ActiveCell.Offset(n, 2).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                Formula1:="=HCC_Pass_Fail"
+        
+            ' Overall Vendor Validation
+            ActiveCell.Offset(n, 26).Formula = "=CONCAT(" & ActiveCell.Offset(n, 0).Address & ",""_""," & ActiveCell.Offset(n, 1).Address & ")"
+            ' ActiveCell.Offset(n, 3).Formula = "=INDEX('" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1'!$B:$B,MATCH(" & ActiveCell.Offset(n, 26).Address & ",'" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1" & "'!$A:$A,0))"
+        
+        Next n
+        
+        xWs4.Range("AC3").EntireColumn.Hidden = True
+        
+        xWs4.Range("A2").Select
+            
+    Else
+        
+        ' No Enrollee HCCs, so add blank spaces
+        xWs4.Columns(3).NumberFormat = "@"
+        
+        xWs4.Range("C3").Value = "Party ID"
+        xWs4.Range("D3").Value = "HCC Adds"
+        xWs4.Range("E3").Value = "Overall Internal Validation"
+        xWs4.Range("F3").Value = "Vendor Validation"
+
+        For n = 1 To 5
+            xWs4.Range("C" & n + 3).Value = sName
+        Next n
+        
+        rCount1 = 5
+        
+        ' Pull Enrollee Charts
+        xWs2.Activate
+        xWs2.Range("B1").Select
+        
+        If ActiveCell.Offset(1, 0).Value = c.Value Then
+            Range(Selection, Selection.End(xlToRight)).Select
+            Range(Selection, Selection.End(xlDown)).Select
+            Set Rng4 = Application.Selection
+            Rng4.Cut xWs4.Range("C" & rCount1 + 5)
+            rCount2 = xWs2.Range("A1", xWs2.Range("A1").End(xlDown)).Rows.Count
+            xWs2.Range("A1:K" & rCount2 + 1).Delete
+            xWs4.Range("C" & rCount1 + 5 & ":F" & rCount1 + rCount2 + 5).Delete
+        Else
+            rCount2 = 5
+        End If
+        
+        xWs4.Activate
+        xWs4.Range("C" & rCount1 + 5).Value = "Chase ID"
+        xWs4.Range("D" & rCount1 + 5).Value = "Chart"
+        xWs4.Range("E" & rCount1 + 5).Value = "Priority"
+        xWs4.Range("F" & rCount1 + 5).Value = "OOA?"
+        xWs4.Range("G" & rCount1 + 5).Value = "CHC?"
+        xWs4.Range("H" & rCount1 + 5).Value = "Vendor Indicator"
+        xWs4.Range("I" & rCount1 + 5).Value = "Chart Retrieval Status"
+        xWs4.Range("J" & rCount1 + 5).Value = "Sent to Vendor"
+        xWs4.Range("K" & rCount1 + 5).Value = "Start Review?"
+        xWs4.Range("L" & rCount1 + 5).Value = "Validator Name"
+        
+        xWs4.Range("M" & rCount1 + 5).Value = "Party ID Lookup"
+        xWs4.Range("N" & rCount1 + 5).Value = "Chart ID Lookup"
+        xWs4.Range("O" & rCount1 + 5).Value = "Chart Lookup"
+        xWs4.Range("P" & rCount1 + 5).Value = "Chart ID - HCC Lookup"
+        
+        xWs4.Range("Q" & rCount1 + 5).Value = "HCC"
+        xWs4.Range("R" & rCount1 + 5).Value = "Vendor Validation"
+        xWs4.Range("S" & rCount1 + 5).Value = "Rebuttal?"
+        xWs4.Range("T" & rCount1 + 5).Value = "Overturned?"
+        xWs4.Range("U" & rCount1 + 5).Value = "Internal Pass/Fail"
+        xWs4.Range("V" & rCount1 + 5).Value = "Val Hierarchy Level"
+        xWs4.Range("W" & rCount1 + 5).Value = "Val HCC Found"
+        xWs4.Range("X" & rCount1 + 5).Value = "Val Support Strength"
+        xWs4.Range("Y" & rCount1 + 5).Value = "Validation DOS"
+        xWs4.Range("Z" & rCount1 + 5).Value = "Validation Page #(s)"
+        xWs4.Range("AA" & rCount1 + 5).Value = "Best DOS"
+        xWs4.Range("AB" & rCount1 + 5).Value = "Notes"
+        
+    
+        For i = 1 To (rCount2 - 1)
+            xWs4.Range("C" & (rCount1 * i) + 6).Activate
+            ActiveCell.Offset(i, 0).Activate
+            
+            
+            For j = 1 To rCount1
+                ActiveCell.EntireRow.Insert
+            Next j
+            
+                        
+            'Chart Retrieval Status formula
+            ' ActiveCell.Offset(-1, 6).Formula = "=INDEX('" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1'!$B:$B,MATCH(" & ActiveCell.Address & ",'" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1" & "'!$A:$A,0))"
+            
+            'Sent to Vendor formula
+            ' ActiveCell.Offset(-1, 7).Formula = "=INDEX('" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1'!$B:$B,MATCH(" & ActiveCell.Address & ",'" & "C:\Users\TEST\[Chart Retrieval Statuses.xlsx]Sheet1" & "'!$A:$A,0))"
+            
+            
+            ActiveCell.Offset(-1, 8).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                Formula1:="Yes"
+                
+            ActiveCell.Offset(-1, 9).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Val_2"
+                    
+                         
+            xWs4.Range("C4:C" & rCount1 + 3).Copy ActiveCell.Offset(0, 10)
+            xWs4.Range("D4:D" & rCount1 + 3).Copy ActiveCell.Offset(0, 14)
+            
+            ActiveCell.Offset(-1, 0).Select
+            Range(Selection, Selection.Offset(0, 1)).Select
+            
+            For k = 1 To rCount1
+                Selection.Copy ActiveCell.Offset(k, 11)
+                ActiveCell.Offset(k, 13).Formula = "=CONCAT(" & ActiveCell.Offset(k, 11).Address & ",""_""," & ActiveCell.Offset(k, 14).Address & ")"
+                
+                
+                 ' Add Vendor Validation dropdown
+                ActiveCell.Offset(k, 15).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Pass_Fail"
+                    
+                ' Add Rebuttal dropdown
+                ActiveCell.Offset(k, 16).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="Yes"
+                    
+                ' Add Overturned dropdown
+                ActiveCell.Offset(k, 17).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Yes_No"
+            
+                ' Add Internal Pass/Fail dropdown
+                ActiveCell.Offset(k, 18).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Pass_Fail"
+                    
+                ' Add Val Hierarchy Level dropdown
+                ActiveCell.Offset(k, 19).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Hier_Lvl"
+                    
+              ' Add Val Support Strength dropdown
+                ActiveCell.Offset(k, 21).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                    Formula1:="=Supp_Str"
+            
+                
+            Next k
+            
+        Next i
+        
+        xWs4.Range("C" & (rCount1 + 5) & ":C" & ((rCount1 + 1) * (rCount2) + 4)).Select
+        Range(Selection, Selection.End(xlToRight)).Select
+        Set Rng5 = Application.Selection
+        Set tbl2 = ActiveSheet.ListObjects.Add(xlSrcRange, Rng5, , xlYes)
+        tbl2.TableStyle = "TableStyleMedium16"
+        Rng5.AutoFilter
+        Rng5.BorderAround Weight:=xlMedium
+        
+        xWs4.Rows(rCount1 + 5).Font.Color = RGB(255, 255, 255)
+        xWs4.Rows(rCount1 + 5).Font.Underline = xlUnderlineStyleSingle
+        
+        xWs4.Range("C3").Select
+        Range(Selection, Selection.End(xlToRight)).Select
+        Range(Selection, Selection.End(xlDown)).Select
+        Set Rng6 = Application.Selection
+        Set tbl3 = ActiveSheet.ListObjects.Add(xlSrcRange, Rng6, , xlYes)
+        tbl3.TableStyle = "TableStyleMedium16"
+        Rng6.AutoFilter
+        Rng6.BorderAround Weight:=xlMedium
+        
+        xWs4.Columns("B:AB").HorizontalAlignment = xlCenter
+        xWs4.Columns("B:AB").AutoFit
+        
+        xWs4.Range("E3").Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("K" & rCount1 + 5).Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("L" & rCount1 + 5).Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("R" & rCount1 + 5).Interior.Color = RGB(240, 150, 9)
+        xWs4.Range("S" & (rCount1 + 5) & ":T" & (rCount1 + 5)).Interior.Color = RGB(112, 173, 71)
+        xWs4.Range("U" & (rCount1 + 5) & ":AB" & (rCount1 + 5)).Interior.Color = RGB(240, 150, 9)
+        
+        xWs4.Columns(4).ColumnWidth = 60
+        
+        xWs4.Columns(7).ColumnWidth = 19
+        xWs4.Columns(8).ColumnWidth = 25
+        xWs4.Columns(9).ColumnWidth = 30
+        xWs4.Columns(10).ColumnWidth = 25
+        xWs4.Columns(11).ColumnWidth = 14
+        xWs4.Columns(12).ColumnWidth = 30
+        xWs4.Columns(13).ColumnWidth = 17
+        xWs4.Columns(17).ColumnWidth = 10
+        xWs4.Columns(18).ColumnWidth = 25
+        xWs4.Columns(19).ColumnWidth = 14
+        xWs4.Columns(20).ColumnWidth = 14
+        xWs4.Columns(21).ColumnWidth = 22
+        xWs4.Columns(22).ColumnWidth = 22
+        xWs4.Columns(23).ColumnWidth = 22
+        xWs4.Columns(24).ColumnWidth = 22
+        xWs4.Columns(25).ColumnWidth = 30
+        xWs4.Columns(26).ColumnWidth = 30
+        xWs4.Columns(27).ColumnWidth = 16
+        xWs4.Columns(28).ColumnWidth = 60
+        
+        Worksheets("Member Directory").Hyperlinks.Add Anchor:=c, _
+            Address:="", _
+            SubAddress:=sName & "!A1", _
+            TextToDisplay:=sName
+    
+        xWs4.Hyperlinks.Add Anchor:=xWs4.Range("A1"), _
+            Address:="", _
+            SubAddress:="'Member Directory'!A1", _
+            TextToDisplay:="Back to Member Directory"
+        
+        xWs4.Activate
+        Windows(1).DisplayGridlines = False
+        xWs4.Range("A2").Select
+        
+        For x = 1 To (rCount2 - 1)
+            xWs4.Range("M" & ((rCount1 * x) + 5 + x)).Select
+            Range(Selection, Selection.End(xlToRight)).Select
+            Selection.Interior.Color = RGB(64, 64, 64)
+        Next x
+        
+        For y = 1 To (rCount2 - 1)
+            xWs4.Range("C" & ((rCount1 * y) + 6 + y)).Select
+            Range(Selection, Selection.Offset(rCount1 - 1, 0)).Select
+            Selection.Rows.Group
+        Next y
+        
+        ActiveSheet.Outline.ShowLevels RowLevels:=1
+        
+        xWs4.Range("M3:P3").EntireColumn.Hidden = True
+    
+        ActiveWindow.FreezePanes = False
+        Range("E" & rCount1 + 6).Select
+        ActiveWindow.FreezePanes = True
+        
+        xWs4.Range("D1").Value = memName
+        xWs4.Range("D1").Font.Bold = True
+        xWs4.Range("D1").Font.Italic = True
+        xWs4.Range("D1").Font.Size = 14
+        xWs4.Range("D1").BorderAround Weight:=xlMedium
+        
+        
+        xWs4.Range("C3").Activate
+        For n = 1 To rCount1
+        
+            ' Overall Internal Validation
+            ActiveCell.Offset(n, 2).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                Formula1:="=HCC_Pass_Fail"
+        
+            ' Overall Vendor Validation
+            ActiveCell.Offset(n, 3).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                Formula1:="=HCC_Pass_Fail"
+        
+        Next n
+        
+        xWs4.Range("AC3").EntireColumn.Hidden = True
+        
+        xWs4.Range("A2").Select
+        
+    End If
+
+Next c
+
+xWs3.Activate
+xWs3.Range("A2").Select
+
+Application.AskToUpdateLinks = True
+Application.DisplayAlerts = True
+
+
+End Sub
